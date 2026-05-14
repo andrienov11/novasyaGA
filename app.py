@@ -312,8 +312,7 @@ with col_b:
 sessions = []
 
 START_TIME = datetime.strptime("08:00", "%H:%M")
-
-BREAK_START = datetime.strptime("13:00", "%H:%M").time()
+BREAK_START = datetime.strptime("12:00", "%H:%M").time()
 BREAK_END = datetime.strptime("14:00", "%H:%M").time()
 
 duration_minutes = int(SKS_PER_SESSION * 50)
@@ -327,15 +326,11 @@ for i in range(int(TOTAL_SESSIONS_PER_DAY)):
     session_start = current_time
     session_end = session_start + timedelta(minutes=duration_minutes)
 
-    # =========================
-    # SKIP JAM ISTIRAHAT
-    # =========================
     if session_start.time() < BREAK_END and session_end.time() > BREAK_START:
         session_start = datetime.combine(
             session_start.date(),
             BREAK_END
         )
-
         session_end = session_start + timedelta(minutes=duration_minutes)
 
     default_label = (
@@ -343,11 +338,14 @@ for i in range(int(TOTAL_SESSIONS_PER_DAY)):
         f"{session_end.strftime('%H:%M')}"
     )
 
+    # key dibuat berubah mengikuti SKS dan jumlah sesi
+    session_key = f"sesi_{i+1}_{SKS_PER_SESSION}_{TOTAL_SESSIONS_PER_DAY}"
+
     with cols[i % 4]:
         sesi = st.text_input(
             f"Sesi {i + 1}",
             value=default_label,
-            key=f"sesi_{i + 1}"
+            key=session_key
         )
 
     sessions.append(sesi)
