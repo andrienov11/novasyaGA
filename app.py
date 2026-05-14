@@ -312,7 +312,7 @@ with col_b:
 sessions = []
 
 START_TIME = datetime.strptime("08:00", "%H:%M")
-BREAK_START = datetime.strptime("12:00", "%H:%M").time()
+BREAK_START = datetime.strptime("13:00", "%H:%M").time()
 BREAK_END = datetime.strptime("14:00", "%H:%M").time()
 
 duration_minutes = int(SKS_PER_SESSION * 50)
