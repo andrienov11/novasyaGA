@@ -552,10 +552,25 @@ if st.session_state.job_id is not None:
         try:
             for _ in range(300):
                 status = fetch_status()
+
                 current_status = status.get("status", "unknown")
                 progress = int(status.get("progress", 0) or 0)
+                generation = status.get("generation", 0)
+                total_generations = status.get("total_generations", GENS)
+                current_conflict = status.get("current_conflict", "-")
+                best_conflict = status.get("best_conflict", "-")
 
-                status_placeholder.info(f"Status: {current_status} | Progress: {progress}%")
+                status_placeholder.markdown(
+                    f"""
+                    **Proses Genetic Algorithm**  
+                    Status: `{current_status}`  
+                    Generasi: `{generation}` dari `{total_generations}`  
+                    Konflik saat ini: `{current_conflict}`  
+                    Konflik terbaik: `{best_conflict}`  
+                    Progress: `{progress}%`
+                    """
+                )
+
                 progress_bar.progress(min(progress, 100))
 
                 if current_status == "done":
