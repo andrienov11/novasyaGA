@@ -2,23 +2,213 @@ import streamlit as st
 import pandas as pd
 import requests
 import time
-import io
 from datetime import datetime, timedelta
 
-API_URL = "https://kinfolk-directly-activism.ngrok-free.dev"
+# =========================
+# CONFIG
+# =========================
+API_URL = " https://kinfolk-directly-activism.ngrok-free.dev"
+# Jika backend sudah pakai ngrok, ganti menjadi:
+# API_URL = "https://xxxx.ngrok-free.app"
 
 st.set_page_config(
     page_title="Novasya Scheduler",
     layout="wide"
 )
 
-st.title("Novasya Scheduler")
-st.write("Sistem Penjadwalan Mata Kuliah Otomatis Berbasis AI")
+# =========================
+# CSS
+# =========================
+st.markdown("""
+<style>
+.stApp {
+    background: linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 50%, #0f0f1e 100%) !important;
+    color: #e0e0e0 !important;
+}
+
+html, body, [class*="css"] {
+    font-size: 18px !important;
+    font-family: 'Segoe UI', 'Roboto', sans-serif !important;
+    color: #e0e0e0 !important;
+}
+
+.block-container {
+    max-width: 1180px !important;
+    padding-top: 4rem !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    padding-bottom: 4rem !important;
+}
+
+.main-title {
+    font-size: 68px !important;
+    font-weight: 900 !important;
+    line-height: 1.1 !important;
+    background: linear-gradient(135deg, #64b5f6 0%, #81c784 50%, #64b5f6 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    margin-bottom: 15px !important;
+}
+
+.subtitle {
+    font-size: 25px !important;
+    color: #b0bec5 !important;
+    margin-bottom: 35px !important;
+}
+
+h2, h3,
+[data-testid="stMarkdownContainer"] h2,
+[data-testid="stMarkdownContainer"] h3 {
+    font-size: 34px !important;
+    color: #64b5f6 !important;
+    font-weight: 800 !important;
+    margin-top: 28px !important;
+    margin-bottom: 18px !important;
+}
+
+p, label, span {
+    font-size: 18px !important;
+    color: #e0e0e0 !important;
+}
+
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #0a0a15 0%, #151523 100%) !important;
+    border-right: 2px solid #37474f !important;
+}
+
+section[data-testid="stSidebar"] * {
+    font-size: 17px !important;
+    color: #e0e0e0 !important;
+}
+
+.stTextInput input,
+.stNumberInput input,
+.stTextArea textarea {
+    font-size: 18px !important;
+    background: #1e1e2e !important;
+    color: #e0e0e0 !important;
+    border: 2px solid #37474f !important;
+    border-radius: 8px !important;
+}
+
+.stTextInput input,
+.stNumberInput input {
+    height: 52px !important;
+}
+
+.stTextArea textarea {
+    min-height: 120px !important;
+}
+
+.stSelectbox div[data-baseweb="select"] {
+    font-size: 18px !important;
+    min-height: 52px !important;
+    background-color: #1e1e2e !important;
+    border-radius: 8px !important;
+    border: 2px solid #37474f !important;
+    color: #e0e0e0 !important;
+}
+
+.stSelectbox div[data-baseweb="select"]:hover {
+    border-color: #64b5f6 !important;
+}
+
+ul {
+    background-color: #1e1e2e !important;
+    border: 1px solid #37474f !important;
+    border-radius: 8px !important;
+}
+
+li {
+    color: #e0e0e0 !important;
+    font-size: 18px !important;
+}
+
+li:hover {
+    background-color: #2d2d3f !important;
+    font-weight: bold !important;
+}
+
+.stCheckbox label,
+.stRadio label {
+    font-size: 18px !important;
+    font-weight: 500 !important;
+}
+
+.stButton > button,
+.stDownloadButton > button {
+    font-size: 20px !important;
+    font-weight: 700 !important;
+    height: 58px !important;
+    background: linear-gradient(135deg, #1e88e5 0%, #1565c0 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 8px !important;
+}
+
+.stButton > button:hover,
+.stDownloadButton > button:hover {
+    background: linear-gradient(135deg, #42a5f5 0%, #1e88e5 100%) !important;
+    color: #ffffff !important;
+}
+
+[data-testid="stDataFrame"],
+[data-testid="stDataEditor"] {
+    background: #1e1e2e !important;
+    border: 1px solid #37474f !important;
+    border-radius: 8px !important;
+}
+
+[data-testid="stDataFrame"] div[role="gridcell"],
+[data-testid="stDataEditor"] div[role="gridcell"] {
+    font-size: 20px !important;
+    color: #e0e0e0 !important;
+}
+
+[data-testid="stDataFrame"] div[role="columnheader"],
+[data-testid="stDataEditor"] div[role="columnheader"] {
+    font-size: 20px !important;
+    font-weight: 800 !important;
+    color: #64b5f6 !important;
+}
+
+[data-testid="stDataEditor"] input {
+    font-size: 20px !important;
+    background: #252535 !important;
+    color: #e0e0e0 !important;
+}
+
+.stSuccess,
+.stWarning,
+.stError,
+.stInfo {
+    font-size: 18px !important;
+    border-radius: 8px !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# =========================
+# TITLE
+# =========================
+st.markdown('<div class="main-title">Novasya Scheduler</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="subtitle">Sistem Penjadwalan Mata Kuliah Otomatis Berbasis AI</div>',
+    unsafe_allow_html=True
+)
+
+# =========================
+# SIDEBAR PARAMETER
+# =========================
+st.sidebar.header("⚙️ Parameter Genetic Algorithm")
 
 POP_SIZE = st.sidebar.number_input("Population Size", 100, 2000, 500, 100)
 GENS = st.sidebar.number_input("Jumlah Generasi", 100, 1000, 300, 50)
 MUT_RATE = st.sidebar.slider("Mutation Rate", 0.01, 0.50, 0.20, 0.01)
 
+# =========================
+# SESSION STATE
+# =========================
 default_data = pd.DataFrame({
     "Kode MK": pd.Series(dtype="str"),
     "Nama Mata Kuliah": pd.Series(dtype="str"),
@@ -30,29 +220,37 @@ default_data = pd.DataFrame({
     "Dosen 4": pd.Series(dtype="str")
 })
 
-for key, value in {
+default_states = {
     "df_input_source": default_data.copy(),
     "df_schedule": None,
     "df_load": None,
     "df_room": None,
     "df_lecturer_sks_detail": None,
     "excel_output": None,
-    "job_id": None
-}.items():
+    "job_id": None,
+    "job_status": None
+}
+
+for key, value in default_states.items():
     if key not in st.session_state:
         st.session_state[key] = value
 
-
+# =========================
+# INPUT RUANGAN
+# =========================
 st.subheader("1. Input Data Ruangan")
 
 room_text = st.text_area(
     "Masukkan nama ruangan, pisahkan dengan koma",
-    "Ruang 1, Ruang 2, Ruang 3, Ruang 4"
+    "Ruang 1, Ruang 2, Ruang 3, Ruang 4",
+    height=120
 )
 
 rooms = [r.strip() for r in room_text.split(",") if r.strip()]
 
-
+# =========================
+# PENGATURAN DOSEN
+# =========================
 st.subheader("2. Pengaturan Dosen")
 
 LECTURER_PER_CLASS = st.radio(
@@ -61,19 +259,39 @@ LECTURER_PER_CLASS = st.radio(
     horizontal=True
 )
 
-
+# =========================
+# HARI AKTIF
+# =========================
 st.subheader("3. Pilih Hari Aktif Kuliah")
 
 selected_days = []
 
-for day in ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"]:
-    if st.checkbox(day, value=(day != "Sabtu")):
-        selected_days.append(day)
+col1, col2, col3 = st.columns(3)
 
+with col1:
+    if st.checkbox("Senin", value=True):
+        selected_days.append("Senin")
+    if st.checkbox("Selasa", value=True):
+        selected_days.append("Selasa")
 
+with col2:
+    if st.checkbox("Rabu", value=True):
+        selected_days.append("Rabu")
+    if st.checkbox("Kamis", value=True):
+        selected_days.append("Kamis")
+
+with col3:
+    if st.checkbox("Jumat", value=True):
+        selected_days.append("Jumat")
+    if st.checkbox("Sabtu", value=False):
+        selected_days.append("Sabtu")
+
+# =========================
+# ATUR SESI
+# =========================
 st.subheader("4. Atur Sesi Kuliah")
 
-st.info("Jam istirahat otomatis: 13:00 - 14:00")
+st.info("Jam mulai kuliah: 08:00 | 1 SKS = 50 menit | Jam istirahat otomatis: 13:00 - 14:00")
 
 col_a, col_b = st.columns(2)
 
@@ -104,12 +322,16 @@ BREAK_END = datetime.strptime("14:00", "%H:%M").time()
 duration_minutes = int(SKS_PER_SESSION * 50)
 current_time = START_TIME
 
+# dibuat vertikal agar urutan di mobile tetap benar
 for i in range(int(TOTAL_SESSIONS_PER_DAY)):
     session_start = current_time
     session_end = session_start + timedelta(minutes=duration_minutes)
 
     if session_start.time() < BREAK_END and session_end.time() > BREAK_START:
-        session_start = datetime.combine(session_start.date(), BREAK_END)
+        session_start = datetime.combine(
+            session_start.date(),
+            BREAK_END
+        )
         session_end = session_start + timedelta(minutes=duration_minutes)
 
     default_label = (
@@ -128,7 +350,9 @@ for i in range(int(TOTAL_SESSIONS_PER_DAY)):
     sessions.append(sesi)
     current_time = session_end
 
-
+# =========================
+# INPUT DATA MK
+# =========================
 st.subheader("5. Input Data Mata Kuliah")
 
 uploaded_file = st.file_uploader(
@@ -188,7 +412,7 @@ if uploaded_file is not None:
         if col_dosen4 != "Tidak Ada":
             selected_columns.append(col_dosen4)
 
-    if st.button("Ekstrak Data Excel ke Tabel"):
+    if st.button("📤 Ekstrak Data Excel ke Tabel", use_container_width=True):
         required_mapping = {
             "Kode MK": col_kode,
             "Nama Mata Kuliah": col_nama,
@@ -216,7 +440,7 @@ if uploaded_file is not None:
                 "Dosen 4": df_excel[col_dosen4] if col_dosen4 != "Tidak Ada" else "",
             })
 
-            st.success("Data berhasil diekstrak.")
+            st.success("Data berhasil diekstrak ke tabel input.")
 
 df_input = st.data_editor(
     st.session_state.df_input_source,
@@ -225,12 +449,14 @@ df_input = st.data_editor(
     hide_index=True
 )
 
-
+# =========================
+# GENERATE JADWAL VIA FASTAPI
+# =========================
 st.subheader("6. Generate Jadwal")
 
-if st.button("Generate Jadwal"):
+if st.button("Generate Jadwal", use_container_width=True):
     if len(selected_days) == 0:
-        st.error("Pilih minimal 1 hari aktif.")
+        st.error("Pilih minimal 1 hari aktif kuliah.")
 
     elif len(rooms) == 0:
         st.error("Masukkan minimal 1 ruangan.")
@@ -244,37 +470,57 @@ if st.button("Generate Jadwal"):
             "rooms": rooms,
             "days": selected_days,
             "sessions": sessions,
-            "lecturer_per_class": LECTURER_PER_CLASS,
-            "pop_size": POP_SIZE,
-            "gens": GENS,
-            "mut_rate": MUT_RATE,
-            "sks_per_session": SKS_PER_SESSION
+            "lecturer_per_class": int(LECTURER_PER_CLASS),
+            "pop_size": int(POP_SIZE),
+            "gens": int(GENS),
+            "mut_rate": float(MUT_RATE),
+            "sks_per_session": int(SKS_PER_SESSION)
         }
 
         try:
-            res = requests.post(f"{API_URL}/generate", json=payload, timeout=30)
-            res.raise_for_status()
+            response = requests.post(
+                f"{API_URL}/generate",
+                json=payload,
+                timeout=30
+            )
+            response.raise_for_status()
 
-            st.session_state.job_id = res.json()["job_id"]
-            st.success(f"Job dikirim ke backend. Job ID: {st.session_state.job_id}")
+            st.session_state.job_id = response.json()["job_id"]
+            st.session_state.job_status = "queued"
+
+            st.success(f"Job berhasil dikirim ke backend. Job ID: {st.session_state.job_id}")
 
         except Exception as e:
             st.error(f"Gagal menghubungi backend: {e}")
 
-
+# =========================
+# CEK STATUS JOB
+# =========================
 if st.session_state.job_id is not None:
-    st.subheader("Status Generate")
+    st.subheader("7. Status Generate")
 
-    status_box = st.empty()
+    st.write(f"Job ID: `{st.session_state.job_id}`")
 
-    if st.button("Cek Status / Ambil Hasil"):
+    col_status_1, col_status_2 = st.columns(2)
+
+    with col_status_1:
+        check_status = st.button("🔄 Cek Status / Ambil Hasil", use_container_width=True)
+
+    with col_status_2:
+        auto_check = st.button("⏳ Auto Check Sampai Selesai", use_container_width=True)
+
+    def fetch_status():
+        response = requests.get(
+            f"{API_URL}/status/{st.session_state.job_id}",
+            timeout=30
+        )
+        response.raise_for_status()
+        return response.json()
+
+    if check_status:
         try:
-            status = requests.get(
-                f"{API_URL}/status/{st.session_state.job_id}",
-                timeout=30
-            ).json()
-
-            status_box.write(status["status"])
+            status = fetch_status()
+            st.session_state.job_status = status.get("status")
 
             if status["status"] == "done":
                 result = status["result"]
@@ -288,31 +534,86 @@ if st.session_state.job_id is not None:
                 st.success("Jadwal berhasil diambil dari backend.")
 
             elif status["status"] == "error":
-                st.error(status["error"])
+                st.error(status.get("error", "Terjadi error di backend."))
 
             else:
-                st.info("Proses masih berjalan. Klik lagi beberapa saat kemudian.")
+                st.info(f"Status saat ini: {status['status']}")
 
         except Exception as e:
             st.error(f"Gagal mengambil status: {e}")
 
+    if auto_check:
+        status_placeholder = st.empty()
+        progress_bar = st.progress(0)
 
+        try:
+            for _ in range(300):
+                status = fetch_status()
+                current_status = status.get("status", "unknown")
+                progress = int(status.get("progress", 0) or 0)
+
+                status_placeholder.info(f"Status: {current_status} | Progress: {progress}%")
+                progress_bar.progress(min(progress, 100))
+
+                if current_status == "done":
+                    result = status["result"]
+
+                    st.session_state.df_schedule = pd.DataFrame(result["schedule"])
+                    st.session_state.df_load = pd.DataFrame(result["load"])
+                    st.session_state.df_room = pd.DataFrame(result["room"])
+                    st.session_state.df_lecturer_sks_detail = pd.DataFrame(result["lecturer_detail"])
+                    st.session_state.excel_output = bytes.fromhex(result["excel_bytes"])
+
+                    st.success("Jadwal berhasil diambil dari backend.")
+                    break
+
+                if current_status == "error":
+                    st.error(status.get("error", "Terjadi error di backend."))
+                    break
+
+                time.sleep(2)
+
+        except Exception as e:
+            st.error(f"Gagal melakukan auto check: {e}")
+
+# =========================
+# TAMPILKAN HASIL
+# =========================
 if st.session_state.df_schedule is not None:
-    st.subheader("Hasil Jadwal Mata Kuliah")
-    st.dataframe(st.session_state.df_schedule, use_container_width=True, hide_index=True)
+    st.success("✅ Jadwal berhasil dibuat tanpa bentrok dosen dan ruangan.")
 
-    st.subheader("Rekap Beban SKS Dosen")
-    st.dataframe(st.session_state.df_load, use_container_width=True, hide_index=True)
+    st.subheader("📌 Hasil Jadwal Mata Kuliah")
+    st.dataframe(
+        st.session_state.df_schedule,
+        use_container_width=True,
+        hide_index=True
+    )
 
-    st.subheader("Detail Beban SKS Dosen")
-    st.dataframe(st.session_state.df_lecturer_sks_detail, use_container_width=True, hide_index=True)
+    st.subheader("📊 Rekap Beban SKS Dosen")
+    st.dataframe(
+        st.session_state.df_load,
+        use_container_width=True,
+        hide_index=True
+    )
 
-    st.subheader("Rekap Penggunaan Ruangan")
-    st.dataframe(st.session_state.df_room, use_container_width=True, hide_index=True)
+    st.subheader("📘 Detail Beban SKS Dosen")
+    st.dataframe(
+        st.session_state.df_lecturer_sks_detail,
+        use_container_width=True,
+        hide_index=True
+    )
+
+    st.subheader("🏫 Rekap Penggunaan Ruangan")
+    st.dataframe(
+        st.session_state.df_room,
+        use_container_width=True,
+        hide_index=True
+    )
 
     st.download_button(
-        label="Download Jadwal Excel",
+        label="📥 Download Jadwal Excel",
         data=st.session_state.excel_output,
         file_name="jadwal_mata_kuliah.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
     )
