@@ -488,51 +488,61 @@ if st.button("Generate Jadwal", use_container_width=True):
         progress_bar = st.progress(0)
 
         while True:
-            status = requests.get(
-                f"{API_URL}/status/{job_id}",
-                timeout=30
-            ).json()
+            try:
+                status = requests.get(
+                    f"{API_URL}/progress/{job_id}",
+                    timeout=10
+                ).json()
 
-            current_status = status.get("status", "unknown")
-            progress = int(status.get("progress", 0) or 0)
-            generation = status.get("generation", 0)
-            total_generations = status.get("total_generations", GENS)
-            current_conflict = status.get("current_conflict", "-")
-            best_conflict = status.get("best_conflict", "-")
+                current_status = status.get("status", "unknown")
+                progress = int(status.get("progress", 0) or 0)
+                generation = status.get("generation", 0)
+                total_generations = status.get("total_generations", GENS)
+                current_conflict = status.get("current_conflict", "-")
+                best_conflict = status.get("best_conflict", "-")
 
-            status_placeholder.markdown(
-                f"""
-                **Proses Genetic Algorithm**  
-                Status: `{current_status}`  
-                Generasi: `{generation}` dari `{total_generations}`  
-                Konflik saat ini: `{current_conflict}`  
-                Konflik terbaik: `{best_conflict}`  
-                Progress: `{progress}%`
-                """
-            )
+                status_placeholder.markdown(
+                    f"""
+                    **Proses Genetic Algorithm**  
+                    Status: `{current_status}`  
+                    Generasi: `{generation}` dari `{total_generations}`  
+                    Konflik saat ini: `{current_conflict}`  
+                    Konflik terbaik: `{best_conflict}`  
+                    Progress: `{progress}%`
+                    """
+                )
 
-            progress_bar.progress(min(progress, 100))
+                progress_bar.progress(min(progress, 100))
 
-            if current_status == "done":
-                result = status["result"]
+                if current_status == "done":
+                    result_response = requests.get(
+                        f"{API_URL}/result/{job_id}",
+                        timeout=60
+                    ).json()
 
-                st.session_state.df_schedule = pd.DataFrame(result["schedule"])
-                st.session_state.df_load = pd.DataFrame(result["load"])
-                st.session_state.df_room = pd.DataFrame(result["room"])
-                st.session_state.df_lecturer_sks_detail = pd.DataFrame(result["lecturer_detail"])
-                st.session_state.excel_output = bytes.fromhex(result["excel_bytes"])
+                    result = result_response["result"]
 
-                st.success("Jadwal berhasil dibuat dan diambil dari backend.")
-                break
+                    st.session_state.df_schedule = pd.DataFrame(result["schedule"])
+                    st.session_state.df_load = pd.DataFrame(result["load"])
+                    st.session_state.df_room = pd.DataFrame(result["room"])
+                    st.session_state.df_lecturer_sks_detail = pd.DataFrame(result["lecturer_detail"])
+                    st.session_state.excel_output = bytes.fromhex(result["excel_bytes"])
 
-            if current_status == "error":
-                st.error(status.get("error", "Terjadi error di backend."))
-                break
+                    st.success("Jadwal berhasil dibuat.")
+                    break
 
-            time.sleep(1)
+                if current_status == "error":
+                    st.error(status.get("error", "Terjadi error di backend."))
+                    break
 
-    except Exception as e:
-        st.error(f"Gagal menghubungi backend: {e}")
+                time.sleep(1)
+
+            except requests.exceptions.RequestException:
+                status_placeholder.warning(
+                    "Koneksi ke backend sementara terputus. Mencoba lagi..."
+                )
+                time.sleep(2)
+                continue
 
 
 # =========================
