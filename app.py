@@ -1,15 +1,14 @@
 import streamlit as st
 import pandas as pd
 import requests
-from datetime import datetime, timedelta
-from streamlit_autorefresh import st_autorefresh
 import time
+from datetime import datetime, timedelta
 
 # =========================
 # CONFIG
 # =========================
-API_URL = " https://kinfolk-directly-activism.ngrok-free.dev"
-# Jika backend sudah pakai ngrok, ganti menjadi:
+API_URL = "http://127.0.0.1:8000"
+# Jika pakai ngrok:
 # API_URL = "https://xxxx.ngrok-free.app"
 
 st.set_page_config(
@@ -63,8 +62,6 @@ h2, h3,
     font-size: 34px !important;
     color: #64b5f6 !important;
     font-weight: 800 !important;
-    margin-top: 28px !important;
-    margin-bottom: 18px !important;
 }
 
 p, label, span {
@@ -97,10 +94,6 @@ section[data-testid="stSidebar"] * {
     height: 52px !important;
 }
 
-.stTextArea textarea {
-    min-height: 120px !important;
-}
-
 .stSelectbox div[data-baseweb="select"] {
     font-size: 18px !important;
     min-height: 52px !important;
@@ -108,32 +101,6 @@ section[data-testid="stSidebar"] * {
     border-radius: 8px !important;
     border: 2px solid #37474f !important;
     color: #e0e0e0 !important;
-}
-
-.stSelectbox div[data-baseweb="select"]:hover {
-    border-color: #64b5f6 !important;
-}
-
-ul {
-    background-color: #1e1e2e !important;
-    border: 1px solid #37474f !important;
-    border-radius: 8px !important;
-}
-
-li {
-    color: #e0e0e0 !important;
-    font-size: 18px !important;
-}
-
-li:hover {
-    background-color: #2d2d3f !important;
-    font-weight: bold !important;
-}
-
-.stCheckbox label,
-.stRadio label {
-    font-size: 18px !important;
-    font-weight: 500 !important;
 }
 
 .stButton > button,
@@ -145,12 +112,6 @@ li:hover {
     color: #ffffff !important;
     border: none !important;
     border-radius: 8px !important;
-}
-
-.stButton > button:hover,
-.stDownloadButton > button:hover {
-    background: linear-gradient(135deg, #42a5f5 0%, #1e88e5 100%) !important;
-    color: #ffffff !important;
 }
 
 [data-testid="stDataFrame"],
@@ -173,18 +134,12 @@ li:hover {
     color: #64b5f6 !important;
 }
 
-[data-testid="stDataEditor"] input {
-    font-size: 20px !important;
-    background: #252535 !important;
-    color: #e0e0e0 !important;
-}
-
 .stSuccess,
 .stWarning,
 .stError,
 .stInfo {
     font-size: 18px !important;
-    border-radius: 8px !important;
+    border-radius: 8px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -199,10 +154,9 @@ st.markdown(
 )
 
 # =========================
-# SIDEBAR PARAMETER
+# PARAMETER GA
 # =========================
 st.sidebar.header("⚙️ Parameter Genetic Algorithm")
-
 POP_SIZE = st.sidebar.number_input("Population Size", 100, 2000, 500, 100)
 GENS = st.sidebar.number_input("Jumlah Generasi", 100, 1000, 300, 50)
 MUT_RATE = st.sidebar.slider("Mutation Rate", 0.01, 0.50, 0.20, 0.01)
@@ -229,7 +183,7 @@ default_states = {
     "df_lecturer_sks_detail": None,
     "excel_output": None,
     "job_id": None,
-    "job_status": None
+    "auto_polling": False
 }
 
 for key, value in default_states.items():
@@ -323,7 +277,6 @@ BREAK_END = datetime.strptime("14:00", "%H:%M").time()
 duration_minutes = int(SKS_PER_SESSION * 50)
 current_time = START_TIME
 
-# dibuat vertikal agar urutan di mobile tetap benar
 cols = st.columns(4)
 
 for i in range(int(TOTAL_SESSIONS_PER_DAY)):
@@ -331,10 +284,7 @@ for i in range(int(TOTAL_SESSIONS_PER_DAY)):
     session_end = session_start + timedelta(minutes=duration_minutes)
 
     if session_start.time() < BREAK_END and session_end.time() > BREAK_START:
-        session_start = datetime.combine(
-            session_start.date(),
-            BREAK_END
-        )
+        session_start = datetime.combine(session_start.date(), BREAK_END)
         session_end = session_start + timedelta(minutes=duration_minutes)
 
     default_label = (
@@ -373,7 +323,10 @@ if uploaded_file is not None:
     selected_columns = []
 
     def get_available_columns(extra_option=None):
-        available = [col for col in excel_columns if col not in selected_columns]
+        available = [
+            col for col in excel_columns
+            if col not in selected_columns
+        ]
 
         if extra_option:
             return [extra_option] + available
@@ -458,111 +411,40 @@ df_input = st.data_editor(
 # =========================
 st.subheader("6. Generate Jadwal")
 
-if "job_id" not in st.session_state:
-    st.session_state.job_id = None
+if st.button("Generate Jadwal", use_container_width=True):
 
-if "auto_polling" not in st.session_state:
-    st.session_state.auto_polling = False
+    payload = {
+        "data": df_input.to_dict(orient="records"),
+        "rooms": rooms,
+        "days": selected_days,
+        "sessions": sessions,
+        "lecturer_per_class": int(LECTURER_PER_CLASS),
+        "pop_size": int(POP_SIZE),
+        "gens": int(GENS),
+        "mut_rate": float(MUT_RATE),
+        "sks_per_session": int(SKS_PER_SESSION)
+    }
 
+    try:
+        response = requests.post(
+            f"{API_URL}/generate",
+            json=payload,
+            timeout=30
+        )
+        response.raise_for_status()
 
-    if st.button("Generate Jadwal", use_container_width=True):
+        job_id = response.json()["job_id"]
 
-        payload = {
-            "data": df_input.to_dict(orient="records"),
-            "rooms": rooms,
-            "days": selected_days,
-            "sessions": sessions,
-            "lecturer_per_class": int(LECTURER_PER_CLASS),
-            "pop_size": int(POP_SIZE),
-            "gens": int(GENS),
-            "mut_rate": float(MUT_RATE),
-            "sks_per_session": int(SKS_PER_SESSION)
-        }
+        st.success(f"Job berhasil dikirim ke backend. Job ID: {job_id}")
 
-        try:
-            response = requests.post(
-                f"{API_URL}/generate",
-                json=payload,
+        status_placeholder = st.empty()
+        progress_bar = st.progress(0)
+
+        while True:
+            status = requests.get(
+                f"{API_URL}/status/{job_id}",
                 timeout=30
-            )
-            response.raise_for_status()
-
-            job_id = response.json()["job_id"]
-
-            st.success(f"Job berhasil dikirim ke backend. Job ID: {job_id}")
-
-            status_placeholder = st.empty()
-            progress_bar = st.progress(0)
-
-            while True:
-                status = requests.get(
-                    f"{API_URL}/status/{job_id}",
-                    timeout=30
-                ).json()
-
-                current_status = status.get("status", "unknown")
-                progress = int(status.get("progress", 0) or 0)
-                generation = status.get("generation", 0)
-                total_generations = status.get("total_generations", GENS)
-                current_conflict = status.get("current_conflict", "-")
-                best_conflict = status.get("best_conflict", "-")
-
-                status_placeholder.markdown(
-                    f"""
-                    **Proses Genetic Algorithm**  
-                    Status: `{current_status}`  
-                    Generasi: `{generation}` dari `{total_generations}`  
-                    Konflik saat ini: `{current_conflict}`  
-                    Konflik terbaik: `{best_conflict}`  
-                    Progress: `{progress}%`
-                    """
-                )
-
-                progress_bar.progress(min(progress, 100))
-
-                if current_status == "done":
-                    result = status["result"]
-
-                    st.session_state.df_schedule = pd.DataFrame(result["schedule"])
-                    st.session_state.df_load = pd.DataFrame(result["load"])
-                    st.session_state.df_room = pd.DataFrame(result["room"])
-                    st.session_state.df_lecturer_sks_detail = pd.DataFrame(result["lecturer_detail"])
-                    st.session_state.excel_output = bytes.fromhex(result["excel_bytes"])
-
-                    st.success("Jadwal berhasil dibuat dan diambil dari backend.")
-                    break
-
-                if current_status == "error":
-                    st.error(status.get("error", "Terjadi error di backend."))
-                    break
-
-                time.sleep(1)
-
-        except Exception as e:
-            st.error(f"Gagal menghubungi backend: {e}")
-
-
-# =========================
-# REFRESH STATUS MANUAL
-# =========================
-if st.session_state.job_id is not None:
-
-    st.subheader("7. Status Generate")
-    st.write(f"Job ID: `{st.session_state.job_id}`")
-
-    status_placeholder = st.empty()
-    progress_bar = st.progress(0)
-
-    if st.button("Refresh Status", use_container_width=True):
-
-        try:
-            status_response = requests.get(
-                f"{API_URL}/progress/{st.session_state.job_id}",
-                timeout=10
-            )
-            status_response.raise_for_status()
-
-            status = status_response.json()
+            ).json()
 
             current_status = status.get("status", "unknown")
             progress = int(status.get("progress", 0) or 0)
@@ -585,15 +467,126 @@ if st.session_state.job_id is not None:
             progress_bar.progress(min(progress, 100))
 
             if current_status == "done":
+                result = status["result"]
 
-                result_response = requests.get(
-                    f"{API_URL}/result/{st.session_state.job_id}",
-                    timeout=60
-                )
-                result_response.raise_for_status()
+                st.session_state.df_schedule = pd.DataFrame(result["schedule"])
+                st.session_state.df_load = pd.DataFrame(result["load"])
+                st.session_state.df_room = pd.DataFrame(result["room"])
+                st.session_state.df_lecturer_sks_detail = pd.DataFrame(result["lecturer_detail"])
+                st.session_state.excel_output = bytes.fromhex(result["excel_bytes"])
 
-                result_data = result_response.json()
-                result = result_data["result"]
+                st.success("Jadwal berhasil dibuat dan diambil dari backend.")
+                break
+
+            if current_status == "error":
+                st.error(status.get("error", "Terjadi error di backend."))
+                break
+
+            time.sleep(1)
+
+    except Exception as e:
+        st.error(f"Gagal menghubungi backend: {e}")
+
+# =========================
+# STATUS GENERATE
+# =========================
+if st.session_state.job_id is not None:
+
+    st.subheader("7. Status Generate")
+    st.write(f"Job ID: `{st.session_state.job_id}`")
+
+    status_placeholder = st.empty()
+    progress_bar = st.progress(0)
+
+    refresh_clicked = st.button(
+        "🔄 Refresh Status Manual",
+        use_container_width=True
+    )
+
+    def request_status():
+        response = requests.get(
+            f"{API_URL}/progress/{st.session_state.job_id}",
+            timeout=10
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def render_status(status):
+        current_status = status.get("status", "unknown")
+        progress = int(status.get("progress", 0) or 0)
+        generation = status.get("generation", 0)
+        total_generations = status.get("total_generations", GENS)
+        current_conflict = status.get("current_conflict", "-")
+        best_conflict = status.get("best_conflict", "-")
+
+        status_placeholder.markdown(
+            f"""
+            **Proses Genetic Algorithm**  
+            Status: `{current_status}`  
+            Generasi: `{generation}` dari `{total_generations}`  
+            Konflik saat ini: `{current_conflict}`  
+            Konflik terbaik: `{best_conflict}`  
+            Progress: `{progress}%`
+            """
+        )
+
+        progress_bar.progress(min(progress, 100))
+        return current_status
+
+    def get_result():
+        response = requests.get(
+            f"{API_URL}/result/{st.session_state.job_id}",
+            timeout=60
+        )
+        response.raise_for_status()
+        result_data = response.json()
+        return result_data["result"]
+
+    try:
+        if st.session_state.auto_polling:
+
+            while True:
+                status = request_status()
+                current_status = render_status(status)
+
+                if current_status == "done":
+                    result = get_result()
+
+                    st.session_state.df_schedule = pd.DataFrame(result["schedule"])
+                    st.session_state.df_load = pd.DataFrame(result["load"])
+                    st.session_state.df_room = pd.DataFrame(result["room"])
+                    st.session_state.df_lecturer_sks_detail = pd.DataFrame(
+                        result["lecturer_detail"]
+                    )
+                    st.session_state.excel_output = bytes.fromhex(
+                        result["excel_bytes"]
+                    )
+
+                    st.session_state.auto_polling = False
+                    st.session_state.job_id = None
+
+                    st.success("Jadwal berhasil dibuat.")
+                    break
+
+                elif current_status == "error":
+                    st.session_state.auto_polling = False
+                    st.error(status.get("error", "Terjadi error di backend."))
+                    break
+
+                elif current_status == "not_found":
+                    st.session_state.auto_polling = False
+                    st.error("Job tidak ditemukan di backend.")
+                    break
+
+                time.sleep(1)
+
+        elif refresh_clicked:
+
+            status = request_status()
+            current_status = render_status(status)
+
+            if current_status == "done":
+                result = get_result()
 
                 st.session_state.df_schedule = pd.DataFrame(result["schedule"])
                 st.session_state.df_load = pd.DataFrame(result["load"])
@@ -605,35 +598,24 @@ if st.session_state.job_id is not None:
                     result["excel_bytes"]
                 )
 
+                st.session_state.job_id = None
                 st.success("Jadwal berhasil dibuat.")
 
-                # Optional: kosongkan job_id setelah selesai
-                st.session_state.job_id = None
-
             elif current_status == "error":
+                st.error(status.get("error", "Terjadi error di backend."))
 
-                st.error(
-                    status.get(
-                        "error",
-                        "Terjadi error di backend."
-                    )
-                )
-
-            elif current_status == "not_found":
-
-                st.error("Job tidak ditemukan di backend.")
-
-            else:
-
-                st.info("Proses masih berjalan. Klik Refresh Status lagi beberapa saat kemudian.")
-
-        except Exception as e:
-            st.error(f"Gagal mengambil status: {e}")
+    except Exception as e:
+        st.warning(
+            "Polling otomatis berhenti sementara. "
+            "Klik tombol Refresh Status Manual untuk meminta status terbaru."
+        )
+        st.caption(f"Detail error: {e}")
         
 # =========================
 # TAMPILKAN HASIL
 # =========================
 if st.session_state.df_schedule is not None:
+
     st.success("✅ Jadwal berhasil dibuat tanpa bentrok dosen dan ruangan.")
 
     st.subheader("📌 Hasil Jadwal Mata Kuliah")
