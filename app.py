@@ -498,11 +498,6 @@ if st.session_state.job_id is not None:
     status_placeholder = st.empty()
     progress_bar = st.progress(0)
 
-    refresh_clicked = st.button(
-        "🔄 Refresh Status Manual",
-        use_container_width=True
-    )
-
     def request_status():
         response = requests.get(
             f"{API_URL}/progress/{st.session_state.job_id}",
@@ -531,6 +526,7 @@ if st.session_state.job_id is not None:
         )
 
         progress_bar.progress(min(progress, 100))
+
         return current_status
 
     def get_result():
@@ -539,12 +535,54 @@ if st.session_state.job_id is not None:
             timeout=60
         )
         response.raise_for_status()
-        result_data = response.json()
-        return result_data["result"]
+        return response.json()["result"]
 
-    try:
-        if st.session_state.auto_polling:
+    # Tombol cadangan jika tampilan status hilang
+    manual_status = st.button(
+        "🔄 Minta Status Backend",
+        use_container_width=True
+    )
 
+    if manual_status:
+        try:
+            status = request_status()
+            current_status = render_status(status)
+
+            if current_status == "done":
+                result = get_result()
+
+                st.session_state.df_schedule = pd.DataFrame(result["schedule"])
+                st.session_state.df_load = pd.DataFrame(result["load"])
+                st.session_state.df_room = pd.DataFrame(result["room"])
+                st.session_state.df_lecturer_sks_detail = pd.DataFrame(
+                    result["lecturer_detail"]
+                )
+                st.session_state.excel_output = bytes.fromhex(
+                    result["excel_bytes"]
+                )
+
+                st.session_state.auto_polling = False
+                st.session_state.job_id = None
+
+                st.success("Jadwal berhasil dibuat.")
+
+            elif current_status == "error":
+                st.session_state.auto_polling = False
+                st.error(status.get("error", "Terjadi error di backend."))
+
+            elif current_status == "not_found":
+                st.session_state.auto_polling = False
+                st.error("Job tidak ditemukan di backend.")
+
+            else:
+                st.info("Proses GA masih berjalan di backend.")
+
+        except Exception as e:
+            st.error(f"Gagal meminta status backend: {e}")
+
+    # Polling otomatis tetap berjalan
+    if st.session_state.auto_polling:
+        try:
             while True:
                 status = request_status()
                 current_status = render_status(status)
@@ -580,36 +618,13 @@ if st.session_state.job_id is not None:
 
                 time.sleep(1)
 
-        elif refresh_clicked:
-
-            status = request_status()
-            current_status = render_status(status)
-
-            if current_status == "done":
-                result = get_result()
-
-                st.session_state.df_schedule = pd.DataFrame(result["schedule"])
-                st.session_state.df_load = pd.DataFrame(result["load"])
-                st.session_state.df_room = pd.DataFrame(result["room"])
-                st.session_state.df_lecturer_sks_detail = pd.DataFrame(
-                    result["lecturer_detail"]
-                )
-                st.session_state.excel_output = bytes.fromhex(
-                    result["excel_bytes"]
-                )
-
-                st.session_state.job_id = None
-                st.success("Jadwal berhasil dibuat.")
-
-            elif current_status == "error":
-                st.error(status.get("error", "Terjadi error di backend."))
-
-    except Exception as e:
-        st.warning(
-            "Polling otomatis berhenti sementara. "
-            "Klik tombol Refresh Status Manual untuk meminta status terbaru."
-        )
-        st.caption(f"Detail error: {e}")
+        except Exception as e:
+            st.session_state.auto_polling = False
+            st.warning(
+                "Tampilan status otomatis berhenti. "
+                "Klik tombol **Minta Status Backend** untuk mengambil status terbaru."
+            )
+            st.caption(f"Detail error: {e}")
         
 # =========================
 # TAMPILKAN HASIL
