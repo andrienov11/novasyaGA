@@ -1,7 +1,8 @@
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uuid
+import threading
 from scheduler_core import run_scheduler
 
 app = FastAPI(title="Novasya Scheduler API")
@@ -35,8 +36,8 @@ def process_job(job_id: str, req: ScheduleRequest):
         jobs[job_id]["progress"] = 0
         jobs[job_id]["generation"] = 0
         jobs[job_id]["total_generations"] = req.gens
-        jobs[job_id]["current_conflict"] = None
-        jobs[job_id]["best_conflict"] = None
+        jobs[job_id]["current_conflict"] = "-"
+        jobs[job_id]["best_conflict"] = "-"
 
         def update_progress(gen, total_gen, current_fitness, best_fitness):
             jobs[job_id]["progress"] = int((gen / total_gen) * 100)
@@ -73,17 +74,26 @@ def root():
 
 
 @app.post("/generate")
-def generate(req: ScheduleRequest, background_tasks: BackgroundTasks):
+def generate(req: ScheduleRequest):
     job_id = str(uuid.uuid4())
 
     jobs[job_id] = {
         "status": "queued",
         "progress": 0,
+        "generation": 0,
+        "total_generations": req.gens,
+        "current_conflict": "-",
+        "best_conflict": "-",
         "result": None,
         "error": None
     }
 
-    background_tasks.add_task(process_job, job_id, req)
+    thread = threading.Thread(
+        target=process_job,
+        args=(job_id, req),
+        daemon=True
+    )
+    thread.start()
 
     return {"job_id": job_id}
 
