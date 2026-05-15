@@ -32,7 +32,18 @@ class ScheduleRequest(BaseModel):
 def process_job(job_id: str, req: ScheduleRequest):
     try:
         jobs[job_id]["status"] = "processing"
-        jobs[job_id]["progress"] = 10
+        jobs[job_id]["progress"] = 0
+        jobs[job_id]["generation"] = 0
+        jobs[job_id]["total_generations"] = req.gens
+        jobs[job_id]["current_conflict"] = None
+        jobs[job_id]["best_conflict"] = None
+
+        def update_progress(gen, total_gen, current_fitness, best_fitness):
+            jobs[job_id]["progress"] = int((gen / total_gen) * 100)
+            jobs[job_id]["generation"] = gen
+            jobs[job_id]["total_generations"] = total_gen
+            jobs[job_id]["current_conflict"] = current_fitness
+            jobs[job_id]["best_conflict"] = best_fitness
 
         result = run_scheduler(
             data=req.data,
@@ -43,7 +54,8 @@ def process_job(job_id: str, req: ScheduleRequest):
             pop_size=req.pop_size,
             gens=req.gens,
             mut_rate=req.mut_rate,
-            sks_per_session=req.sks_per_session
+            sks_per_session=req.sks_per_session,
+            progress_callback=update_progress
         )
 
         jobs[job_id]["status"] = "done"

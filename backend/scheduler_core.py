@@ -274,7 +274,8 @@ def run_scheduler(
     pop_size,
     gens,
     mut_rate,
-    sks_per_session
+    sks_per_session,
+    progress_callback=None
 ):
     df_input = pd.DataFrame(data)
 
@@ -304,7 +305,8 @@ def run_scheduler(
         rooms,
         pop_size,
         gens,
-        mut_rate
+        mut_rate,
+        progress_callback=progress_callback
     )
 
     if total_conflict != 0:
