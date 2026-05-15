@@ -7,9 +7,7 @@ from datetime import datetime, timedelta
 # =========================
 # CONFIG
 # =========================
-API_URL = " https://kinfolk-directly-activism.ngrok-free.dev"
-# Jika pakai ngrok:
-# API_URL = "https://xxxx.ngrok-free.app"
+API_URL = "https://kinfolk-directly-activism.ngrok-free.dev"
 
 st.set_page_config(
     page_title="Novasya Scheduler",
@@ -114,6 +112,13 @@ section[data-testid="stSidebar"] * {
     border-radius: 8px !important;
 }
 
+.status-small-button .stButton > button {
+    height: 36px !important;
+    font-size: 13px !important;
+    padding: 0px 8px !important;
+    border-radius: 6px !important;
+}
+
 [data-testid="stDataFrame"],
 [data-testid="stDataEditor"] {
     background: #1e1e2e !important;
@@ -183,7 +188,9 @@ default_states = {
     "df_lecturer_sks_detail": None,
     "excel_output": None,
     "job_id": None,
-    "auto_polling": False
+    "auto_polling": False,
+    "polling_stopped": False,
+    "last_status": None
 }
 
 for key, value in default_states.items():
@@ -191,10 +198,78 @@ for key, value in default_states.items():
         st.session_state[key] = value
 
 # =========================
-# STATUS POLLING
+# HELPER FUNCTIONS
 # =========================
-if "polling_stopped" not in st.session_state:
-    st.session_state.polling_stopped = False
+def request_status():
+    response = requests.get(
+        f"{API_URL}/status/{st.session_state.job_id}",
+        timeout=15
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def save_result(result):
+    st.session_state.df_schedule = pd.DataFrame(result["schedule"])
+    st.session_state.df_load = pd.DataFrame(result["load"])
+    st.session_state.df_room = pd.DataFrame(result["room"])
+    st.session_state.df_lecturer_sks_detail = pd.DataFrame(result["lecturer_detail"])
+    st.session_state.excel_output = bytes.fromhex(result["excel_bytes"])
+
+
+def render_status_box(status, progress_bar=None):
+    current_status = status.get("status", "unknown")
+    progress = int(status.get("progress", 0) or 0)
+    generation = status.get("generation", 0)
+    total_generations = status.get("total_generations", GENS)
+    current_conflict = status.get("current_conflict", "-")
+    best_conflict = status.get("best_conflict", "-")
+
+    st.markdown(
+        f"""
+        **Proses Genetic Algorithm**  
+        Status: `{current_status}`  
+        Generasi: `{generation}` dari `{total_generations}`  
+        Konflik saat ini: `{current_conflict}`  
+        Konflik terbaik: `{best_conflict}`  
+        Progress: `{progress}%`
+        """
+    )
+
+    if progress_bar is not None:
+        progress_bar.progress(min(progress, 100))
+
+    return current_status
+
+
+def process_status(status):
+    current_status = status.get("status", "unknown")
+    st.session_state.last_status = status
+
+    if current_status == "done":
+        result = status.get("result")
+
+        if result is not None:
+            save_result(result)
+
+        st.session_state.auto_polling = False
+        st.session_state.polling_stopped = True
+        st.session_state.job_id = None
+
+        st.success("Jadwal berhasil dibuat.")
+        st.rerun()
+
+    elif current_status == "error":
+        st.session_state.auto_polling = False
+        st.error(status.get("error", "Terjadi error di backend."))
+
+    elif current_status == "not_found":
+        st.session_state.auto_polling = False
+        st.error("Job tidak ditemukan di backend.")
+
+    else:
+        st.info("Proses GA masih berjalan di backend.")
+
 
 # =========================
 # INPUT RUANGAN
@@ -404,13 +479,17 @@ if uploaded_file is not None:
             })
 
             st.success("Data berhasil diekstrak ke tabel input.")
+            st.rerun()
 
 df_input = st.data_editor(
     st.session_state.df_input_source,
     num_rows="dynamic",
     use_container_width=True,
-    hide_index=True
+    hide_index=True,
+    key="df_input_editor"
 )
+
+st.session_state.df_input_source = df_input
 
 # =========================
 # GENERATE JADWAL VIA FASTAPI
@@ -419,79 +498,45 @@ st.subheader("6. Generate Jadwal")
 
 if st.button("Generate Jadwal", use_container_width=True):
 
-    payload = {
-        "data": df_input.to_dict(orient="records"),
-        "rooms": rooms,
-        "days": selected_days,
-        "sessions": sessions,
-        "lecturer_per_class": int(LECTURER_PER_CLASS),
-        "pop_size": int(POP_SIZE),
-        "gens": int(GENS),
-        "mut_rate": float(MUT_RATE),
-        "sks_per_session": int(SKS_PER_SESSION)
-    }
+    if len(df_input) == 0:
+        st.error("Data mata kuliah masih kosong.")
+    elif len(rooms) == 0:
+        st.error("Data ruangan masih kosong.")
+    elif len(selected_days) == 0:
+        st.error("Hari aktif kuliah belum dipilih.")
+    else:
+        payload = {
+            "data": df_input.to_dict(orient="records"),
+            "rooms": rooms,
+            "days": selected_days,
+            "sessions": sessions,
+            "lecturer_per_class": int(LECTURER_PER_CLASS),
+            "pop_size": int(POP_SIZE),
+            "gens": int(GENS),
+            "mut_rate": float(MUT_RATE),
+            "sks_per_session": int(SKS_PER_SESSION)
+        }
 
-    try:
-        response = requests.post(
-            f"{API_URL}/generate",
-            json=payload,
-            timeout=30
-        )
-        response.raise_for_status()
-
-        job_id = response.json()["job_id"]
-
-        st.success(f"Job berhasil dikirim ke backend. Job ID: {job_id}")
-
-        status_placeholder = st.empty()
-        progress_bar = st.progress(0)
-
-        while True:
-            status = requests.get(
-                f"{API_URL}/status/{job_id}",
+        try:
+            response = requests.post(
+                f"{API_URL}/generate",
+                json=payload,
                 timeout=30
-            ).json()
-
-            current_status = status.get("status", "unknown")
-            progress = int(status.get("progress", 0) or 0)
-            generation = status.get("generation", 0)
-            total_generations = status.get("total_generations", GENS)
-            current_conflict = status.get("current_conflict", "-")
-            best_conflict = status.get("best_conflict", "-")
-
-            status_placeholder.markdown(
-                f"""
-                **Proses Genetic Algorithm**  
-                Status: `{current_status}`  
-                Generasi: `{generation}` dari `{total_generations}`  
-                Konflik saat ini: `{current_conflict}`  
-                Konflik terbaik: `{best_conflict}`  
-                Progress: `{progress}%`
-                """
             )
+            response.raise_for_status()
 
-            progress_bar.progress(min(progress, 100))
+            job_id = response.json()["job_id"]
 
-            if current_status == "done":
-                result = status["result"]
+            st.session_state.job_id = job_id
+            st.session_state.auto_polling = True
+            st.session_state.polling_stopped = False
+            st.session_state.last_status = None
 
-                st.session_state.df_schedule = pd.DataFrame(result["schedule"])
-                st.session_state.df_load = pd.DataFrame(result["load"])
-                st.session_state.df_room = pd.DataFrame(result["room"])
-                st.session_state.df_lecturer_sks_detail = pd.DataFrame(result["lecturer_detail"])
-                st.session_state.excel_output = bytes.fromhex(result["excel_bytes"])
+            st.success(f"Job berhasil dikirim ke backend. Job ID: {job_id}")
+            st.rerun()
 
-                st.success("Jadwal berhasil dibuat dan diambil dari backend.")
-                break
-
-            if current_status == "error":
-                st.error(status.get("error", "Terjadi error di backend."))
-                break
-
-            time.sleep(1)
-
-    except Exception as e:
-        st.error(f"Gagal menghubungi backend: {e}")
+        except Exception as e:
+            st.error(f"Gagal menghubungi backend: {e}")
 
 # =========================
 # STATUS GENERATE
@@ -499,152 +544,52 @@ if st.button("Generate Jadwal", use_container_width=True):
 if st.session_state.job_id is not None:
 
     st.subheader("7. Status Generate")
-    st.write(f"Job ID: `{st.session_state.job_id}`")
 
-    status_placeholder = st.empty()
-    progress_bar = st.progress(0)
+    col_info, col_btn = st.columns([6, 1])
 
-    def request_status():
-        response = requests.get(
-            f"{API_URL}/progress/{st.session_state.job_id}",
-            timeout=10
-        )
-        response.raise_for_status()
-        return response.json()
+    with col_info:
+        st.write(f"Job ID: `{st.session_state.job_id}`")
 
-    def render_status(status):
-        current_status = status.get("status", "unknown")
-        progress = int(status.get("progress", 0) or 0)
-        generation = status.get("generation", 0)
-        total_generations = status.get("total_generations", GENS)
-        current_conflict = status.get("current_conflict", "-")
-        best_conflict = status.get("best_conflict", "-")
-
-        status_placeholder.markdown(
-            f"""
-            **Proses Genetic Algorithm**  
-            Status: `{current_status}`  
-            Generasi: `{generation}` dari `{total_generations}`  
-            Konflik saat ini: `{current_conflict}`  
-            Konflik terbaik: `{best_conflict}`  
-            Progress: `{progress}%`
-            """
-        )
-
-        progress_bar.progress(min(progress, 100))
-
-        return current_status
-
-    def get_result():
-        response = requests.get(
-            f"{API_URL}/result/{st.session_state.job_id}",
-            timeout=60
-        )
-        response.raise_for_status()
-        return response.json()["result"]
-
-    # Tombol cadangan jika tampilan status hilang
-    manual_status = False
-
-    if st.session_state.polling_stopped:
-
-        st.warning(
-            "Tampilan status otomatis berhenti."
-        )
-
+    with col_btn:
+        st.markdown('<div class="status-small-button">', unsafe_allow_html=True)
         manual_status = st.button(
-            "Minta Status Backend",
+            "🔄 Status",
+            key="manual_status_btn",
             use_container_width=True
         )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    progress_bar = st.progress(0)
+
+    if st.session_state.last_status is not None:
+        render_status_box(st.session_state.last_status, progress_bar)
 
     if manual_status:
         try:
             status = request_status()
-            status = request_status()
-            current_status = render_status(status)
-
-            if current_status == "done":
-                result = get_result()
-
-                st.session_state.df_schedule = pd.DataFrame(result["schedule"])
-                st.session_state.df_load = pd.DataFrame(result["load"])
-                st.session_state.df_room = pd.DataFrame(result["room"])
-                st.session_state.df_lecturer_sks_detail = pd.DataFrame(
-                    result["lecturer_detail"]
-                )
-                st.session_state.excel_output = bytes.fromhex(
-                    result["excel_bytes"]
-                )
-
-                st.session_state.auto_polling = False
-                st.session_state.polling_stopped = True
-                st.session_state.job_id = None
-
-                st.success("Jadwal berhasil dibuat.")
-
-            elif current_status == "error":
-                st.session_state.auto_polling = False
-                st.error(status.get("error", "Terjadi error di backend."))
-
-            elif current_status == "not_found":
-                st.session_state.auto_polling = False
-                st.error("Job tidak ditemukan di backend.")
-
-            else:
-                st.info("Proses GA masih berjalan di backend.")
+            render_status_box(status, progress_bar)
+            process_status(status)
 
         except Exception as e:
             st.error(f"Gagal meminta status backend: {e}")
 
-    # Polling otomatis tetap berjalan
     if st.session_state.auto_polling:
         try:
-            while True:
-                status = request_status()
-                current_status = render_status(status)
+            status = request_status()
+            render_status_box(status, progress_bar)
+            process_status(status)
 
-                if current_status == "done":
-                    result = get_result()
-
-                    st.session_state.df_schedule = pd.DataFrame(result["schedule"])
-                    st.session_state.df_load = pd.DataFrame(result["load"])
-                    st.session_state.df_room = pd.DataFrame(result["room"])
-                    st.session_state.df_lecturer_sks_detail = pd.DataFrame(
-                        result["lecturer_detail"]
-                    )
-                    st.session_state.excel_output = bytes.fromhex(
-                        result["excel_bytes"]
-                    )
-
-                    st.session_state.auto_polling = False
-                    st.session_state.job_id = None
-
-                    st.success("Jadwal berhasil dibuat.")
-                    break
-
-                elif current_status == "error":
-                    st.session_state.auto_polling = False
-                    st.error(status.get("error", "Terjadi error di backend."))
-                    break
-
-                elif current_status == "not_found":
-                    st.session_state.auto_polling = False
-                    st.error("Job tidak ditemukan di backend.")
-                    break
-
-                time.sleep(1)
+            time.sleep(1)
+            st.rerun()
 
         except Exception as e:
-            
             st.session_state.auto_polling = False
             st.session_state.polling_stopped = True
 
-            st.warning(
-                "Tampilan status otomatis berhenti."
-            )
-
+            st.warning("Tampilan status otomatis berhenti.")
             st.caption(f"Detail error: {e}")
-        
+            st.info("Klik tombol 🔄 Status untuk meminta status proses GA ke backend.")
+
 # =========================
 # TAMPILKAN HASIL
 # =========================
