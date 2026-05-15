@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
 import requests
-import time
 from datetime import datetime, timedelta
+from streamlit_autorefresh import st_autorefresh
 
 # =========================
 # CONFIG
@@ -552,8 +552,7 @@ if st.session_state.job_id is not None:
             st.session_state.job_id = None
 
         else:
-            time.sleep(2)
-            st.rerun()
+            st_autorefresh(interval=2000, key="ga_status_refresh")
 
     except Exception as e:
         st.error(f"Gagal mengambil status: {e}")
