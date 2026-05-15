@@ -541,54 +541,84 @@ if st.button("Generate Jadwal", use_container_width=True):
 # =========================
 # STATUS GENERATE
 # =========================
-if st.session_state.job_id is not None:
+st.subheader("7. Status Generate")
 
-    st.subheader("7. Status Generate")
+col_info, col_btn = st.columns([6, 1])
 
-    col_info, col_btn = st.columns([6, 1])
+with col_info:
+    if st.session_state.job_id is not None:
+        st.caption(f"Job aktif: `{st.session_state.job_id}`")
+    else:
+        st.caption("Belum ada job GA yang aktif.")
 
-    with col_info:
-        st.write(f"Job ID: `{st.session_state.job_id}`")
+with col_btn:
+    manual_status = st.button(
+        "🔄 Status",
+        key="manual_status_btn",
+        use_container_width=True
+    )
 
-    with col_btn:
-        st.markdown('<div class="status-small-button">', unsafe_allow_html=True)
-        manual_status = st.button(
-            "🔄 Status",
-            key="manual_status_btn",
-            use_container_width=True
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
+status_placeholder = st.empty()
+progress_bar = st.progress(0)
 
-    progress_bar = st.progress(0)
+def show_status(status):
+    current_status = status.get("status", "unknown")
+    progress = int(status.get("progress", 0) or 0)
+    generation = status.get("generation", 0)
+    total_generations = status.get("total_generations", GENS)
+    current_conflict = status.get("current_conflict", "-")
+    best_conflict = status.get("best_conflict", "-")
 
-    if st.session_state.last_status is not None:
-        render_status_box(st.session_state.last_status, progress_bar)
+    status_placeholder.markdown(
+        f"""
+        **Proses Genetic Algorithm**  
+        Status: `{current_status}`  
+        Generasi: `{generation}` dari `{total_generations}`  
+        Konflik saat ini: `{current_conflict}`  
+        Konflik terbaik: `{best_conflict}`  
+        Progress: `{progress}%`
+        """
+    )
 
-    if manual_status:
+    progress_bar.progress(min(progress, 100))
+    return current_status
+
+
+if st.session_state.last_status is not None:
+    show_status(st.session_state.last_status)
+
+if manual_status:
+    if st.session_state.job_id is None:
+        st.warning("Belum ada proses GA yang berjalan.")
+    else:
         try:
             status = request_status()
-            render_status_box(status, progress_bar)
+            st.session_state.last_status = status
+
+            current_status = show_status(status)
             process_status(status)
 
         except Exception as e:
             st.error(f"Gagal meminta status backend: {e}")
 
-    if st.session_state.auto_polling:
-        try:
-            status = request_status()
-            render_status_box(status, progress_bar)
-            process_status(status)
+if st.session_state.job_id is not None and st.session_state.auto_polling:
+    try:
+        status = request_status()
+        st.session_state.last_status = status
 
-            time.sleep(1)
-            st.rerun()
+        current_status = show_status(status)
+        process_status(status)
 
-        except Exception as e:
-            st.session_state.auto_polling = False
-            st.session_state.polling_stopped = True
+        time.sleep(1)
+        st.rerun()
 
-            st.warning("Tampilan status otomatis berhenti.")
-            st.caption(f"Detail error: {e}")
-            st.info("Klik tombol 🔄 Status untuk meminta status proses GA ke backend.")
+    except Exception as e:
+        st.session_state.auto_polling = False
+        st.session_state.polling_stopped = True
+
+        st.warning("Tampilan status otomatis berhenti.")
+        st.caption(f"Detail error: {e}")
+        st.info("Klik tombol 🔄 Status untuk meminta status proses GA ke backend.")
 
 # =========================
 # TAMPILKAN HASIL
