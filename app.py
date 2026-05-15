@@ -191,6 +191,12 @@ for key, value in default_states.items():
         st.session_state[key] = value
 
 # =========================
+# STATUS POLLING
+# =========================
+if "polling_stopped" not in st.session_state:
+    st.session_state.polling_stopped = False
+
+# =========================
 # INPUT RUANGAN
 # =========================
 st.subheader("1. Input Data Ruangan")
@@ -538,13 +544,22 @@ if st.session_state.job_id is not None:
         return response.json()["result"]
 
     # Tombol cadangan jika tampilan status hilang
-    manual_status = st.button(
-        "🔄 Minta Status Backend",
-        use_container_width=True
-    )
+    manual_status = False
+
+    if st.session_state.polling_stopped:
+
+        st.warning(
+            "Tampilan status otomatis berhenti."
+        )
+
+        manual_status = st.button(
+            "Minta Status Backend",
+            use_container_width=True
+        )
 
     if manual_status:
         try:
+            status = request_status()
             status = request_status()
             current_status = render_status(status)
 
@@ -562,6 +577,7 @@ if st.session_state.job_id is not None:
                 )
 
                 st.session_state.auto_polling = False
+                st.session_state.polling_stopped = True
                 st.session_state.job_id = None
 
                 st.success("Jadwal berhasil dibuat.")
