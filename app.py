@@ -635,11 +635,14 @@ if st.session_state.job_id is not None:
                 time.sleep(1)
 
         except Exception as e:
+            
             st.session_state.auto_polling = False
+            st.session_state.polling_stopped = True
+
             st.warning(
-                "Tampilan status otomatis berhenti. "
-                "Klik tombol **Minta Status Backend** untuk mengambil status terbaru."
+                "Tampilan status otomatis berhenti."
             )
+
             st.caption(f"Detail error: {e}")
         
 # =========================
