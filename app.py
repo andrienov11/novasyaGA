@@ -323,6 +323,8 @@ duration_minutes = int(SKS_PER_SESSION * 50)
 current_time = START_TIME
 
 # dibuat vertikal agar urutan di mobile tetap benar
+cols = st.columns(4)
+
 for i in range(int(TOTAL_SESSIONS_PER_DAY)):
     session_start = current_time
     session_end = session_start + timedelta(minutes=duration_minutes)
@@ -341,11 +343,12 @@ for i in range(int(TOTAL_SESSIONS_PER_DAY)):
 
     session_key = f"sesi_{i + 1}_{SKS_PER_SESSION}_{TOTAL_SESSIONS_PER_DAY}"
 
-    sesi = st.text_input(
-        f"Sesi {i + 1}",
-        value=default_label,
-        key=session_key
-    )
+    with cols[i % 4]:
+        sesi = st.text_input(
+            f"Sesi {i + 1}",
+            value=default_label,
+            key=session_key
+        )
 
     sessions.append(sesi)
     current_time = session_end
