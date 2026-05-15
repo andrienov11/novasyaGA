@@ -482,7 +482,7 @@ if st.button("Generate Jadwal", use_container_width=True):
 
         job_id = response.json()["job_id"]
 
-        st.success(f"Job berhasil dikirim ke backend. Job ID: {job_id}")
+        st.success(f"Job ID: {job_id}")
 
         status_placeholder = st.empty()
         progress_bar = st.progress(0)
