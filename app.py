@@ -489,10 +489,12 @@ if st.button("Generate Jadwal", use_container_width=True):
 
         while True:
             try:
-                status = requests.get(
+                status_response = requests.get(
                     f"{API_URL}/progress/{job_id}",
                     timeout=10
-                ).json()
+                )
+                status_response.raise_for_status()
+                status = status_response.json()
 
                 current_status = status.get("status", "unknown")
                 progress = int(status.get("progress", 0) or 0)
@@ -518,21 +520,31 @@ if st.button("Generate Jadwal", use_container_width=True):
                     result_response = requests.get(
                         f"{API_URL}/result/{job_id}",
                         timeout=60
-                    ).json()
+                    )
+                    result_response.raise_for_status()
 
-                    result = result_response["result"]
+                    result_data = result_response.json()
+                    result = result_data["result"]
 
                     st.session_state.df_schedule = pd.DataFrame(result["schedule"])
                     st.session_state.df_load = pd.DataFrame(result["load"])
                     st.session_state.df_room = pd.DataFrame(result["room"])
-                    st.session_state.df_lecturer_sks_detail = pd.DataFrame(result["lecturer_detail"])
-                    st.session_state.excel_output = bytes.fromhex(result["excel_bytes"])
+                    st.session_state.df_lecturer_sks_detail = pd.DataFrame(
+                        result["lecturer_detail"]
+                    )
+                    st.session_state.excel_output = bytes.fromhex(
+                        result["excel_bytes"]
+                    )
 
                     st.success("Jadwal berhasil dibuat.")
                     break
 
                 if current_status == "error":
                     st.error(status.get("error", "Terjadi error di backend."))
+                    break
+
+                if current_status == "not_found":
+                    st.error("Job tidak ditemukan di backend.")
                     break
 
                 time.sleep(1)
@@ -544,7 +556,9 @@ if st.button("Generate Jadwal", use_container_width=True):
                 time.sleep(2)
                 continue
 
-
+    except Exception as e:
+        st.error(f"Gagal menghubungi backend: {e}")
+        
 # =========================
 # TAMPILKAN HASIL
 # =========================
