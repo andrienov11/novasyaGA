@@ -267,6 +267,9 @@ def process_status(status):
         st.session_state.auto_polling = False
         st.error("Job tidak ditemukan di backend.")
 
+    else:
+        st.info("Proses GA masih berjalan di backend.")
+
 
 # =========================
 # INPUT RUANGAN
