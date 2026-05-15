@@ -97,41 +97,41 @@ def create_individual(classes, timeslots, total_rooms):
     return individual
 
 
+def get_used_slots(start_slot, duration):
+    return set(range(start_slot, start_slot + duration))
+
+
 def fitness(individual, classes):
     conflict = 0
 
-    room_slot_map = {}
-    lecturer_slot_map = {}
-    course_slot_map = {}
+    for i in range(len(individual)):
+        for j in range(i + 1, len(individual)):
 
-    for i, gene in enumerate(individual):
-        room = gene["room"]
-        kode_mk = classes[i]["Kode MK"]
-        dosen_list = classes[i]["Dosen"]
-        duration = classes[i]["Durasi Sesi"]
+            slots_i = get_used_slots(
+                individual[i]["timeslot"],
+                classes[i]["Durasi Sesi"]
+            )
 
-        for slot in range(gene["timeslot"], gene["timeslot"] + duration):
-            room_key = (room, slot)
-            room_slot_map[room_key] = room_slot_map.get(room_key, 0) + 1
+            slots_j = get_used_slots(
+                individual[j]["timeslot"],
+                classes[j]["Durasi Sesi"]
+            )
 
-            for dosen in dosen_list:
-                lecturer_key = (dosen, slot)
-                lecturer_slot_map[lecturer_key] = lecturer_slot_map.get(lecturer_key, 0) + 1
+            overlap_timeslot = bool(slots_i & slots_j)
+            same_room = individual[i]["room"] == individual[j]["room"]
+            same_lecturer = bool(
+                set(classes[i]["Dosen"]) & set(classes[j]["Dosen"])
+            )
+            same_course = classes[i]["Kode MK"] == classes[j]["Kode MK"]
 
-            course_key = (kode_mk, slot)
-            course_slot_map[course_key] = course_slot_map.get(course_key, 0) + 1
+            if overlap_timeslot and same_room:
+                conflict += 100
 
-    for count in room_slot_map.values():
-        if count > 1:
-            conflict += (count - 1) * 10
+            if overlap_timeslot and same_lecturer:
+                conflict += 100
 
-    for count in lecturer_slot_map.values():
-        if count > 1:
-            conflict += (count - 1) * 10
-
-    for count in course_slot_map.values():
-        if count > 1:
-            conflict += (count - 1) * 3
+            if overlap_timeslot and same_course:
+                conflict += 30
 
     return conflict
 
