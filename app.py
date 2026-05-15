@@ -3,6 +3,7 @@ import pandas as pd
 import requests
 from datetime import datetime, timedelta
 from streamlit_autorefresh import st_autorefresh
+import time
 
 # =========================
 # CONFIG
@@ -458,104 +459,81 @@ df_input = st.data_editor(
 st.subheader("6. Generate Jadwal")
 
 if st.button("Generate Jadwal", use_container_width=True):
-    if len(selected_days) == 0:
-        st.error("Pilih minimal 1 hari aktif kuliah.")
 
-    elif len(rooms) == 0:
-        st.error("Masukkan minimal 1 ruangan.")
+    payload = {
+        "data": df_input.to_dict(orient="records"),
+        "rooms": rooms,
+        "days": selected_days,
+        "sessions": sessions,
+        "lecturer_per_class": int(LECTURER_PER_CLASS),
+        "pop_size": int(POP_SIZE),
+        "gens": int(GENS),
+        "mut_rate": float(MUT_RATE),
+        "sks_per_session": int(SKS_PER_SESSION)
+    }
 
-    elif df_input.dropna(how="all").empty:
-        st.error("Data mata kuliah belum diisi.")
-
-    else:
-        payload = {
-            "data": df_input.to_dict(orient="records"),
-            "rooms": rooms,
-            "days": selected_days,
-            "sessions": sessions,
-            "lecturer_per_class": int(LECTURER_PER_CLASS),
-            "pop_size": int(POP_SIZE),
-            "gens": int(GENS),
-            "mut_rate": float(MUT_RATE),
-            "sks_per_session": int(SKS_PER_SESSION)
-        }
-
-        try:
-            response = requests.post(
-                f"{API_URL}/generate",
-                json=payload,
-                timeout=30
-            )
-            response.raise_for_status()
-
-            st.session_state.job_id = response.json()["job_id"]
-            st.session_state.job_status = "queued"
-
-            st.success(f"Job berhasil dikirim ke backend. Job ID: {st.session_state.job_id}")
-
-        except Exception as e:
-            st.error(f"Gagal menghubungi backend: {e}")
-
-# =========================
-# STATUS GENERATE OTOMATIS
-# =========================
-if st.session_state.job_id is not None:
-
-    status_placeholder = st.empty()
-    progress_bar = st.progress(0)
-
-    def fetch_status():
-        response = requests.get(
-            f"{API_URL}/status/{st.session_state.job_id}",
+    try:
+        response = requests.post(
+            f"{API_URL}/generate",
+            json=payload,
             timeout=30
         )
         response.raise_for_status()
-        return response.json()
 
-    try:
-        status = fetch_status()
+        job_id = response.json()["job_id"]
 
-        current_status = status.get("status", "unknown")
-        progress = int(status.get("progress", 0) or 0)
-        generation = status.get("generation", 0)
-        total_generations = status.get("total_generations", GENS)
-        current_conflict = status.get("current_conflict", "-")
-        best_conflict = status.get("best_conflict", "-")
+        st.success(f"Job berhasil dikirim ke backend. Job ID: {job_id}")
 
-        status_placeholder.markdown(
-            f"""
-            **Proses Genetic Algorithm**  
-            Status: `{current_status}`  
-            Generasi: `{generation}` dari `{total_generations}`  
-            Konflik saat ini: `{current_conflict}`  
-            Konflik terbaik: `{best_conflict}`  
-            Progress: `{progress}%`
-            """
-        )
+        status_placeholder = st.empty()
+        progress_bar = st.progress(0)
 
-        progress_bar.progress(min(progress, 100))
+        while True:
+            status = requests.get(
+                f"{API_URL}/status/{job_id}",
+                timeout=30
+            ).json()
 
-        if current_status == "done":
-            result = status["result"]
+            current_status = status.get("status", "unknown")
+            progress = int(status.get("progress", 0) or 0)
+            generation = status.get("generation", 0)
+            total_generations = status.get("total_generations", GENS)
+            current_conflict = status.get("current_conflict", "-")
+            best_conflict = status.get("best_conflict", "-")
 
-            st.session_state.df_schedule = pd.DataFrame(result["schedule"])
-            st.session_state.df_load = pd.DataFrame(result["load"])
-            st.session_state.df_room = pd.DataFrame(result["room"])
-            st.session_state.df_lecturer_sks_detail = pd.DataFrame(result["lecturer_detail"])
-            st.session_state.excel_output = bytes.fromhex(result["excel_bytes"])
+            status_placeholder.markdown(
+                f"""
+                **Proses Genetic Algorithm**  
+                Status: `{current_status}`  
+                Generasi: `{generation}` dari `{total_generations}`  
+                Konflik saat ini: `{current_conflict}`  
+                Konflik terbaik: `{best_conflict}`  
+                Progress: `{progress}%`
+                """
+            )
 
-            st.success("Jadwal berhasil diambil dari backend.")
-            st.session_state.job_id = None
+            progress_bar.progress(min(progress, 100))
 
-        elif current_status == "error":
-            st.error(status.get("error", "Terjadi error di backend."))
-            st.session_state.job_id = None
+            if current_status == "done":
+                result = status["result"]
 
-        else:
-            st_autorefresh(interval=2000, key="ga_status_refresh")
+                st.session_state.df_schedule = pd.DataFrame(result["schedule"])
+                st.session_state.df_load = pd.DataFrame(result["load"])
+                st.session_state.df_room = pd.DataFrame(result["room"])
+                st.session_state.df_lecturer_sks_detail = pd.DataFrame(result["lecturer_detail"])
+                st.session_state.excel_output = bytes.fromhex(result["excel_bytes"])
+
+                st.success("Jadwal berhasil dibuat dan diambil dari backend.")
+                break
+
+            if current_status == "error":
+                st.error(status.get("error", "Terjadi error di backend."))
+                break
+
+            time.sleep(1)
 
     except Exception as e:
-        st.error(f"Gagal mengambil status: {e}")
+        st.error(f"Gagal menghubungi backend: {e}")
+
 
 # =========================
 # TAMPILKAN HASIL
