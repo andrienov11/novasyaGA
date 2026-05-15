@@ -464,36 +464,82 @@ if "job_id" not in st.session_state:
 if "auto_polling" not in st.session_state:
     st.session_state.auto_polling = False
 
-if st.button("Generate Jadwal", use_container_width=True):
 
-    payload = {
-        "data": df_input.to_dict(orient="records"),
-        "rooms": rooms,
-        "days": selected_days,
-        "sessions": sessions,
-        "lecturer_per_class": int(LECTURER_PER_CLASS),
-        "pop_size": int(POP_SIZE),
-        "gens": int(GENS),
-        "mut_rate": float(MUT_RATE),
-        "sks_per_session": int(SKS_PER_SESSION)
-    }
+    if st.button("Generate Jadwal", use_container_width=True):
 
-    try:
-        response = requests.post(
-            f"{API_URL}/generate",
-            json=payload,
-            timeout=30
-        )
-        response.raise_for_status()
+        payload = {
+            "data": df_input.to_dict(orient="records"),
+            "rooms": rooms,
+            "days": selected_days,
+            "sessions": sessions,
+            "lecturer_per_class": int(LECTURER_PER_CLASS),
+            "pop_size": int(POP_SIZE),
+            "gens": int(GENS),
+            "mut_rate": float(MUT_RATE),
+            "sks_per_session": int(SKS_PER_SESSION)
+        }
 
-        st.session_state.job_id = response.json()["job_id"]
-        st.session_state.auto_polling = True
+        try:
+            response = requests.post(
+                f"{API_URL}/generate",
+                json=payload,
+                timeout=30
+            )
+            response.raise_for_status()
 
-        st.success(f"Job ID: {st.session_state.job_id}")
+            job_id = response.json()["job_id"]
 
-    except Exception as e:
-        st.error(f"Gagal menghubungi backend: {e}")
+            st.success(f"Job berhasil dikirim ke backend. Job ID: {job_id}")
 
+            status_placeholder = st.empty()
+            progress_bar = st.progress(0)
+
+            while True:
+                status = requests.get(
+                    f"{API_URL}/status/{job_id}",
+                    timeout=30
+                ).json()
+
+                current_status = status.get("status", "unknown")
+                progress = int(status.get("progress", 0) or 0)
+                generation = status.get("generation", 0)
+                total_generations = status.get("total_generations", GENS)
+                current_conflict = status.get("current_conflict", "-")
+                best_conflict = status.get("best_conflict", "-")
+
+                status_placeholder.markdown(
+                    f"""
+                    **Proses Genetic Algorithm**  
+                    Status: `{current_status}`  
+                    Generasi: `{generation}` dari `{total_generations}`  
+                    Konflik saat ini: `{current_conflict}`  
+                    Konflik terbaik: `{best_conflict}`  
+                    Progress: `{progress}%`
+                    """
+                )
+
+                progress_bar.progress(min(progress, 100))
+
+                if current_status == "done":
+                    result = status["result"]
+
+                    st.session_state.df_schedule = pd.DataFrame(result["schedule"])
+                    st.session_state.df_load = pd.DataFrame(result["load"])
+                    st.session_state.df_room = pd.DataFrame(result["room"])
+                    st.session_state.df_lecturer_sks_detail = pd.DataFrame(result["lecturer_detail"])
+                    st.session_state.excel_output = bytes.fromhex(result["excel_bytes"])
+
+                    st.success("Jadwal berhasil dibuat dan diambil dari backend.")
+                    break
+
+                if current_status == "error":
+                    st.error(status.get("error", "Terjadi error di backend."))
+                    break
+
+                time.sleep(1)
+
+        except Exception as e:
+            st.error(f"Gagal menghubungi backend: {e}")
 
 # =========================
 # STATUS GENERATE
@@ -606,7 +652,7 @@ if st.session_state.job_id is not None:
     status_placeholder = st.empty()
     progress_bar = st.progress(0)
 
-    if st.button("🔄 Refresh Status", use_container_width=True):
+    if st.button("Refresh Status", use_container_width=True):
 
         try:
             status_response = requests.get(
