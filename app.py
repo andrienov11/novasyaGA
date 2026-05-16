@@ -334,65 +334,25 @@ with col3:
 # =========================
 # ATUR SESI
 # =========================
+
 st.subheader("4. Atur Sesi Kuliah")
 
-st.info("Jam mulai kuliah: 08:00 | 1 SKS = 50 menit | Jam istirahat otomatis: 13:00 - 14:00")
+st.info("""
+Aturan sesi otomatis:
 
-col_a, col_b = st.columns(2)
+- 08:00 - 10:30 : hanya MK 3 SKS
+- 10:30 - 13:00 : hanya MK 3 SKS
+- 14:00 - 16:30 : MK 3 SKS
+- 14:00 - 15:40 : MK 2 SKS
+- 15:40 - 17:20 : MK 2 SKS
 
-with col_a:
-    TOTAL_SESSIONS_PER_DAY = st.number_input(
-        "Jumlah sesi kuliah dalam sehari",
-        min_value=1,
-        max_value=12,
-        value=4,
-        step=1
-    )
-
-with col_b:
-    SKS_PER_SESSION = st.number_input(
-        "Jumlah SKS dalam 1 sesi",
-        min_value=1,
-        max_value=6,
-        value=2,
-        step=1
-    )
+Catatan:
+Jika slot sore diisi MK 3 SKS, maka hanya ada 1 sesi.
+Jika slot sore diisi MK 2 SKS, maka ada 2 sesi.
+""")
 
 sessions = []
-
-START_TIME = datetime.strptime("08:00", "%H:%M")
-BREAK_START = datetime.strptime("13:00", "%H:%M").time()
-BREAK_END = datetime.strptime("14:00", "%H:%M").time()
-
-duration_minutes = int(SKS_PER_SESSION * 50)
-current_time = START_TIME
-
-cols = st.columns(4)
-
-for i in range(int(TOTAL_SESSIONS_PER_DAY)):
-    session_start = current_time
-    session_end = session_start + timedelta(minutes=duration_minutes)
-
-    if session_start.time() < BREAK_END and session_end.time() > BREAK_START:
-        session_start = datetime.combine(session_start.date(), BREAK_END)
-        session_end = session_start + timedelta(minutes=duration_minutes)
-
-    default_label = (
-        f"{session_start.strftime('%H:%M')} - "
-        f"{session_end.strftime('%H:%M')}"
-    )
-
-    session_key = f"sesi_{i + 1}_{SKS_PER_SESSION}_{TOTAL_SESSIONS_PER_DAY}"
-
-    with cols[i % 4]:
-        sesi = st.text_input(
-            f"Sesi {i + 1}",
-            value=default_label,
-            key=session_key
-        )
-
-    sessions.append(sesi)
-    current_time = session_end
+SKS_PER_SESSION = 1
 
 # =========================
 # INPUT DATA MK
