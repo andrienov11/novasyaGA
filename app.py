@@ -162,9 +162,9 @@ st.markdown(
 # PARAMETER GA
 # =========================
 st.sidebar.header("⚙️ Parameter Genetic Algorithm")
-POP_SIZE = st.sidebar.number_input("Population Size", 100, 2000, 500, 100)
+POP_SIZE = st.sidebar.number_input("Population Size", 100, 2000, 200, 100)
 GENS = st.sidebar.number_input("Jumlah Generasi", 100, 1000, 300, 50)
-MUT_RATE = st.sidebar.slider("Mutation Rate", 0.01, 0.50, 0.20, 0.01)
+MUT_RATE = st.sidebar.slider("Mutation Rate", 0.01, 0.50, 0.08, 0.01)
 
 # =========================
 # SESSION STATE
@@ -200,6 +200,15 @@ for key, value in default_states.items():
 # =========================
 # HELPER FUNCTIONS
 # =========================
+def clear_previous_result():
+    st.session_state.df_schedule = None
+    st.session_state.df_load = None
+    st.session_state.df_room = None
+    st.session_state.df_lecturer_sks_detail = None
+    st.session_state.excel_output = None
+    st.session_state.last_status = None
+    st.session_state.polling_stopped = False
+
 def request_status():
     response = requests.get(
         f"{API_URL}/status/{st.session_state.job_id}",
@@ -497,6 +506,8 @@ st.session_state.df_input_source = df_input
 st.subheader("6. Generate Jadwal")
 
 if st.button("Generate Jadwal", use_container_width=True):
+    
+    clear_previous_result()
 
     if len(df_input) == 0:
         st.error("Data mata kuliah masih kosong.")
