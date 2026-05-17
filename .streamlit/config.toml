@@ -11,3 +11,8 @@ showErrorDetails = true
 
 [logger]
 level = "info"
+
+[server]
+headless = true
+enableCORS = false
+port = $PORT
