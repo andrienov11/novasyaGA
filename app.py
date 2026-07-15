@@ -296,7 +296,15 @@ rooms = [r.strip() for r in room_text.split(",") if r.strip()]
 # =========================
 # PENGATURAN DOSEN
 # =========================
-st.subheader("2. Data Target SKS Dosen")
+st.subheader("2. Pengaturan Dosen")
+
+LECTURER_PER_CLASS = st.radio(
+    "Pilih jumlah dosen pada setiap kelas",
+    [1, 2],
+    horizontal=True
+)
+
+st.subheader("3. Data Target SKS Dosen")
 
 uploaded_target = st.file_uploader(
     "Upload Excel Target SKS Dosen",
@@ -532,7 +540,7 @@ if st.button("Generate Jadwal", use_container_width=True):
             "rooms": rooms,
             "days": selected_days,
             "sessions": sessions,
-            #"lecturer_per_class": int(LECTURER_PER_CLASS),
+            "lecturer_per_class": int(LECTURER_PER_CLASS),
             "pop_size": int(POP_SIZE),
             "gens": int(GENS),
             "mut_rate": float(MUT_RATE),
