@@ -296,13 +296,24 @@ rooms = [r.strip() for r in room_text.split(",") if r.strip()]
 # =========================
 # PENGATURAN DOSEN
 # =========================
-st.subheader("2. Pengaturan Dosen")
+st.subheader("2. Data Target SKS Dosen")
 
-LECTURER_PER_CLASS = st.radio(
-    "Pilih jumlah dosen pada setiap kelas",
-    [1, 2],
-    horizontal=True
+uploaded_target = st.file_uploader(
+    "Upload Excel Target SKS Dosen",
+    type=["xlsx"],
+    key="target_sks"
 )
+
+target_sks = None
+
+if uploaded_target is not None:
+
+    df_target = pd.read_excel(uploaded_target)
+
+    st.write("Preview Target SKS")
+    st.dataframe(df_target, use_container_width=True)
+
+    target_sks = df_target.to_dict(orient="records")
 
 # =========================
 # HARI AKTIF
@@ -336,7 +347,7 @@ with col3:
 # =========================
 st.subheader("4. Atur Sesi Kuliah")
 
-st.info("Jam mulai kuliah: 08:00 | 1 SKS = 50 menit | Jam istirahat otomatis: 13:00 - 14:00")
+st.info("Jam mulai kuliah: 08:00 | 1 SKS = 50 menit | Jam istirahat otomatis: 13:00 - 13:50")
 
 col_a, col_b = st.columns(2)
 
@@ -362,7 +373,7 @@ sessions = []
 
 START_TIME = datetime.strptime("08:00", "%H:%M")
 BREAK_START = datetime.strptime("13:00", "%H:%M").time()
-BREAK_END = datetime.strptime("14:00", "%H:%M").time()
+BREAK_END = datetime.strptime("13:50", "%H:%M").time()
 
 duration_minutes = int(SKS_PER_SESSION * 50)
 current_time = START_TIME
@@ -401,6 +412,11 @@ st.subheader("5. Input Data Mata Kuliah")
 
 uploaded_file = st.file_uploader(
     "Upload data mata kuliah dari Excel",
+    type=["xlsx"]
+)
+
+uploaded_dosen = st.file_uploader(
+    "Upload data dosen",
     type=["xlsx"]
 )
 
@@ -525,7 +541,8 @@ if st.button("Generate Jadwal", use_container_width=True):
             "pop_size": int(POP_SIZE),
             "gens": int(GENS),
             "mut_rate": float(MUT_RATE),
-            "sks_per_session": int(SKS_PER_SESSION)
+            "sks_per_session": int(SKS_PER_SESSION),
+            "target_sks": target_sks
         }
 
         try:
