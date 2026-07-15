@@ -415,11 +415,6 @@ uploaded_file = st.file_uploader(
     type=["xlsx"]
 )
 
-uploaded_dosen = st.file_uploader(
-    "Upload data dosen",
-    type=["xlsx"]
-)
-
 if uploaded_file is not None:
     df_excel = pd.read_excel(uploaded_file)
 
@@ -537,7 +532,7 @@ if st.button("Generate Jadwal", use_container_width=True):
             "rooms": rooms,
             "days": selected_days,
             "sessions": sessions,
-            "lecturer_per_class": int(LECTURER_PER_CLASS),
+            #"lecturer_per_class": int(LECTURER_PER_CLASS),
             "pop_size": int(POP_SIZE),
             "gens": int(GENS),
             "mut_rate": float(MUT_RATE),
