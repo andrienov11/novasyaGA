@@ -304,7 +304,7 @@ LECTURER_PER_CLASS = st.radio(
     horizontal=True
 )
 
-st.subheader("3. Data Target SKS Dosen")
+st.subheader("3. Data SKS per Dosen")
 
 uploaded_target = st.file_uploader(
     "Upload Excel Target SKS Dosen",
@@ -326,7 +326,7 @@ if uploaded_target is not None:
 # =========================
 # HARI AKTIF
 # =========================
-st.subheader("3. Pilih Hari Aktif Kuliah")
+st.subheader("4. Pilih Hari Aktif Kuliah")
 
 selected_days = []
 
@@ -353,7 +353,7 @@ with col3:
 # =========================
 # ATUR SESI
 # =========================
-st.subheader("4. Atur Sesi Kuliah")
+st.subheader("5. Atur Sesi Kuliah")
 
 st.info("Jam mulai kuliah: 08:00 | 1 SKS = 50 menit | Jam istirahat otomatis: 13:00 - 13:50")
 
@@ -416,7 +416,7 @@ for i in range(int(TOTAL_SESSIONS_PER_DAY)):
 # =========================
 # INPUT DATA MK
 # =========================
-st.subheader("5. Input Data Mata Kuliah")
+st.subheader("6. Input Data Mata Kuliah")
 
 uploaded_file = st.file_uploader(
     "Upload data mata kuliah dari Excel",
@@ -478,7 +478,7 @@ if uploaded_file is not None:
         if col_dosen4 != "Tidak Ada":
             selected_columns.append(col_dosen4)
 
-    if st.button("📤 Ekstrak Data Excel ke Tabel", use_container_width=True):
+    if st.button("Ekstrak Data Excel", use_container_width=True):
         required_mapping = {
             "Kode MK": col_kode,
             "Nama Mata Kuliah": col_nama,
@@ -522,7 +522,7 @@ st.session_state.df_input_source = df_input
 # =========================
 # GENERATE JADWAL VIA FASTAPI
 # =========================
-st.subheader("6. Generate Jadwal")
+st.subheader("7. Generate Jadwal")
 
 if st.button("Generate Jadwal", use_container_width=True):
     
@@ -572,7 +572,7 @@ if st.button("Generate Jadwal", use_container_width=True):
 # =========================
 # STATUS GENERATE
 # =========================
-st.subheader("7. Status Generate")
+st.subheader("8. Status Generate")
 
 col_info, col_btn = st.columns([6, 1])
 
@@ -584,7 +584,7 @@ with col_info:
 
 with col_btn:
     manual_status = st.button(
-        "🔄 Status",
+        "Status",
         key="manual_status_btn",
         use_container_width=True
     )
@@ -649,37 +649,37 @@ if st.session_state.job_id is not None and st.session_state.auto_polling:
 
         st.warning("Tampilan status otomatis berhenti.")
         st.caption(f"Detail error: {e}")
-        st.info("Klik tombol 🔄 Status untuk meminta status proses GA ke backend.")
+        st.info("Klik tombol Status untuk meminta status proses GA ke backend.")
 
 # =========================
 # TAMPILKAN HASIL
 # =========================
 if st.session_state.df_schedule is not None:
 
-    st.success("✅ Jadwal berhasil dibuat tanpa bentrok dosen dan ruangan.")
+    st.success("Jadwal berhasil dibuat tanpa bentrok dosen dan ruangan.")
 
-    st.subheader("📌 Hasil Jadwal Mata Kuliah")
+    st.subheader("Hasil Jadwal Mata Kuliah")
     st.dataframe(
         st.session_state.df_schedule,
         use_container_width=True,
         hide_index=True
     )
 
-    st.subheader("📊 Rekap Beban SKS Dosen")
+    st.subheader("Rekap Beban SKS per Dosen")
     st.dataframe(
         st.session_state.df_load,
         use_container_width=True,
         hide_index=True
     )
 
-    st.subheader("📘 Detail Beban SKS Dosen")
+    st.subheader("Detail Beban SKS Dosen")
     st.dataframe(
         st.session_state.df_lecturer_sks_detail,
         use_container_width=True,
         hide_index=True
     )
 
-    st.subheader("🏫 Rekap Penggunaan Ruangan")
+    st.subheader("Rekap Penggunaan Ruangan")
     st.dataframe(
         st.session_state.df_room,
         use_container_width=True,
@@ -687,7 +687,7 @@ if st.session_state.df_schedule is not None:
     )
 
     st.download_button(
-        label="📥 Download Jadwal Excel",
+        label="Download Jadwal Kuliah",
         data=st.session_state.excel_output,
         file_name="jadwal_mata_kuliah.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
